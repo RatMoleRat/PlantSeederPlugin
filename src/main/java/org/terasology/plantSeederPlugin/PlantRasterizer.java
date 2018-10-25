@@ -43,7 +43,13 @@ public class PlantRasterizer implements WorldRasterizerPlugin {
         random = new Random();
     }
 
-    //places plants in appropriate positions
+    /**
+     * Places plants in the world.
+     * <p>
+     * Sugarcane spawns on sand near water, and the other plants spawn with less frequency and only on grass.
+     * @param chunk
+     * @param chunkRegion
+     */
     @Override
     public void generateChunk(CoreChunk chunk, Region chunkRegion) {
         SurfaceHeightFacet surfaceHeightFacet = chunkRegion.getFacet(SurfaceHeightFacet.class);
@@ -58,28 +64,50 @@ public class PlantRasterizer implements WorldRasterizerPlugin {
             AABB boundsOfObj = chunk.getBlock(ChunkMath.calcBlockPos(position)).getBounds(position);
             float surfaceHeight = surfaceHeightFacet.getWorld(position.x, position.z);
             Block blockAtPos = chunk.getBlock(ChunkMath.calcBlockPos(position));
-            //check if it's sand, if it is, there's a change of placing sugarcane
-            if (blockAtPos.equals(sand) && !chunk.getBlock(ChunkMath.calcBlockPos(new Vector3i(position.x(), position.y()+1, position.z()))).equals(water))) {
-                if (random.nextInt(50)>45) {
-                    BaseVector3i positionOfNew = ChunkMath.calcBlockPos(position);
-                    ((Vector3i) positionOfNew).y+=((int)boundsOfObj.maxY()-(int)boundsOfObj.minY());
-                    chunkRegion.getRegion().expandToContain(positionOfNew);
-                    if (positionOfNew.y() < 64) {
-                        chunk.setBlock(positionOfNew,sugarCane);
+            //check if it's sand ( and next to water and not water above it), if it is, there's a change of placing sugarcane
+            if (blockAtPos.equals(sand)) {
+                boolean nextToWater = false;
+                if (chunk.getBlock(ChunkMath.calcBlockPos(new Vector3i(position.x()+1, position.y(), position.z()))).equals(water)) {
+                    nextToWater = true;
+                } else if (chunk.getBlock(ChunkMath.calcBlockPos(new Vector3i(position.x()-1, position.y(), position.z()))).equals(water)) {
+                    nextToWater = true;
+                } else if (chunk.getBlock(ChunkMath.calcBlockPos(new Vector3i(position.x(), position.y(), position.z()+1))).equals(water)) {
+                    nextToWater = true;
+                } else if (chunk.getBlock(ChunkMath.calcBlockPos(new Vector3i(position.x(), position.y(), position.z()-1))).equals(water)) {
+                    nextToWater = true;
+                }
+                if (nextToWater && !chunk.getBlock(ChunkMath.calcBlockPos(new Vector3i(position.x(), position.y()+1, position.z()))).equals(water)) {
+                    if (random.nextInt(50)>45) {
+                        placeBlocks(boundsOfObj, position, chunkRegion, chunk, sugarCane);
                     }
                 }
             }
             //also a chance of placing another crop
             else if (blockAtPos.equals(grass)) {
-                if (random.nextInt(100)>98) {
-                    BaseVector3i positionOfNew = ChunkMath.calcBlockPos(position);
-                    ((Vector3i) positionOfNew).y+=((int)boundsOfObj.maxY()-(int)boundsOfObj.minY());
-                    chunkRegion.getRegion().expandToContain(positionOfNew);
-                    if (positionOfNew.y() < 64) {
-                        chunk.setBlock(positionOfNew, plants[random.nextInt(3)]);
-                    }
+                if (random.nextInt(300)>298) {
+                    placeBlocks(boundsOfObj, position, chunkRegion, chunk, plants[random.nextInt(3)]);
                 }
             }
+        }
+    }
+
+    /**
+     * Places blocks based on the set parameters
+     * @param objBounds
+     * @param pos
+     * @param region
+     * @param c
+     */
+    private void placeBlocks(AABB objBounds, Vector3i pos, Region region, CoreChunk c, Block toPlace) {
+        BaseVector3i positionOfNew0 = ChunkMath.calcBlockPos(pos);
+        BaseVector3i positionOfNew1 = positionOfNew0;
+        ((Vector3i) positionOfNew1).y+=((int)objBounds.maxY()-(int)objBounds.minY());
+        positionOfNew1 = ChunkMath.calcBlockPos((Vector3i)positionOfNew1);
+        ((Vector3i) positionOfNew1).setX(positionOfNew0.x());
+        ((Vector3i) positionOfNew1).setZ(positionOfNew0.z());
+        region.getRegion().expandToContain(positionOfNew1);
+        if (positionOfNew1.y() < 64) {
+            c.setBlock(positionOfNew1,toPlace);
         }
     }
 }
